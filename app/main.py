@@ -2,7 +2,8 @@ from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+
+from .entities import SuggestionIn, SuggestionOut
 
 app = FastAPI(title="SecDev Course App", version="0.1.0")
 
@@ -58,17 +59,6 @@ def get_item(item_id: int):
         if it["id"] == item_id:
             return it
     raise ApiError(code="not_found", message="item not found", status=404)
-
-
-class SuggestionIn(BaseModel):
-    user_id: int
-    title: str
-    text: str
-    status: Optional[str] = "new"
-
-
-class SuggestionOut(SuggestionIn):
-    id: int
 
 
 @app.post("/suggestions", response_model=SuggestionOut)
