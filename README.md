@@ -3,6 +3,7 @@
 Стартовый шаблон для студенческого репозитория (HSE SecDev 2025).
 
 ## Быстрый старт
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
