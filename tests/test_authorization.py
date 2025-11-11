@@ -30,7 +30,6 @@ class TestOwnerOnlyAuthorization:
         """Test that user can update their own suggestion."""
         headers = auth_headers("owner", "pass12345")
 
-        # Create suggestion
         response = client.post(
             "/suggestions",
             headers=headers,
@@ -38,7 +37,6 @@ class TestOwnerOnlyAuthorization:
         )
         suggestion_id = response.json()["id"]
 
-        # Update own suggestion
         response = client.put(
             f"/suggestions/{suggestion_id}",
             headers=headers,
@@ -53,7 +51,6 @@ class TestOwnerOnlyAuthorization:
         """Test that user can delete their own suggestion."""
         headers = auth_headers("owner", "pass12345")
 
-        # Create suggestion
         response = client.post(
             "/suggestions",
             headers=headers,
@@ -61,19 +58,16 @@ class TestOwnerOnlyAuthorization:
         )
         suggestion_id = response.json()["id"]
 
-        # Delete own suggestion
         response = client.delete(f"/suggestions/{suggestion_id}", headers=headers)
 
         assert response.status_code == 200
         assert "deleted" in response.json()["status"].lower()
 
-        # Verify it's deleted
         response = client.get(f"/suggestions/{suggestion_id}", headers=headers)
         assert response.status_code == 404
 
     def test_user_cannot_update_others_suggestion(self, client, auth_headers):
         """Test that user CANNOT update another user's suggestion."""
-        # User 1 creates suggestion
         headers1 = auth_headers("user1", "pass12345")
         response = client.post(
             "/suggestions",
@@ -82,7 +76,6 @@ class TestOwnerOnlyAuthorization:
         )
         suggestion_id = response.json()["id"]
 
-        # User 2 tries to update it
         headers2 = auth_headers("user2", "pass12345")
         response = client.put(
             f"/suggestions/{suggestion_id}",
@@ -90,13 +83,11 @@ class TestOwnerOnlyAuthorization:
             json={"title": "Hacked", "text": "Hacked text", "status": "approved"},
         )
 
-        # Should be forbidden
         assert response.status_code == 403
         assert "forbidden" in response.json()["error"]["code"].lower()
 
     def test_user_cannot_delete_others_suggestion(self, client, auth_headers):
         """Test that user CANNOT delete another user's suggestion."""
-        # User 1 creates suggestion
         headers1 = auth_headers("user1", "pass12345")
         response = client.post(
             "/suggestions",
@@ -109,11 +100,9 @@ class TestOwnerOnlyAuthorization:
         headers2 = auth_headers("user2", "pass12345")
         response = client.delete(f"/suggestions/{suggestion_id}", headers=headers2)
 
-        # Should be forbidden
         assert response.status_code == 403
         assert "forbidden" in response.json()["error"]["code"].lower()
 
-        # Verify it still exists
         response = client.get(f"/suggestions/{suggestion_id}", headers=headers1)
         assert response.status_code == 200
 
@@ -146,7 +135,6 @@ class TestOwnerOnlyAuthorization:
 
     def test_user_can_read_others_suggestion_details(self, client, auth_headers):
         """Test that users can read details of others' suggestions."""
-        # User 1 creates suggestion
         headers1 = auth_headers("user1", "pass12345")
         response = client.post(
             "/suggestions",
@@ -155,7 +143,6 @@ class TestOwnerOnlyAuthorization:
         )
         suggestion_id = response.json()["id"]
 
-        # User 2 can read it
         headers2 = auth_headers("user2", "pass12345")
         response = client.get(f"/suggestions/{suggestion_id}", headers=headers2)
 
@@ -175,7 +162,6 @@ class TestOwnerOnlyAuthorization:
 
     def test_unauthorized_user_cannot_update_suggestion(self, client, auth_headers):
         """Test that unauthenticated users cannot update suggestions."""
-        # Create suggestion with auth
         headers = auth_headers("user1", "pass12345")
         response = client.post(
             "/suggestions",
@@ -184,7 +170,6 @@ class TestOwnerOnlyAuthorization:
         )
         suggestion_id = response.json()["id"]
 
-        # Try to update without auth
         response = client.put(
             f"/suggestions/{suggestion_id}",
             json={"title": "Hacked", "text": "Hacked", "status": "approved"},
@@ -194,7 +179,6 @@ class TestOwnerOnlyAuthorization:
 
     def test_unauthorized_user_cannot_delete_suggestion(self, client, auth_headers):
         """Test that unauthenticated users cannot delete suggestions."""
-        # Create suggestion with auth
         headers = auth_headers("user1", "pass12345")
         response = client.post(
             "/suggestions",
@@ -203,14 +187,12 @@ class TestOwnerOnlyAuthorization:
         )
         suggestion_id = response.json()["id"]
 
-        # Try to delete without auth
         response = client.delete(f"/suggestions/{suggestion_id}")
 
         assert response.status_code == 401
 
     def test_error_message_for_forbidden_update(self, client, auth_headers):
         """Test that forbidden update returns clear error message."""
-        # User 1 creates suggestion
         headers1 = auth_headers("user1", "pass12345")
         response = client.post(
             "/suggestions",
@@ -219,7 +201,6 @@ class TestOwnerOnlyAuthorization:
         )
         suggestion_id = response.json()["id"]
 
-        # User 2 tries to update
         headers2 = auth_headers("user2", "pass12345")
         response = client.put(
             f"/suggestions/{suggestion_id}",
@@ -235,7 +216,6 @@ class TestOwnerOnlyAuthorization:
         self, client, auth_headers
     ):
         """Test that multiple users can create suggestions with same title."""
-        # User 1 creates suggestion
         headers1 = auth_headers("user1", "pass12345")
         response1 = client.post(
             "/suggestions",
@@ -244,7 +224,6 @@ class TestOwnerOnlyAuthorization:
         )
         assert response1.status_code == 200
 
-        # User 2 creates suggestion with same title
         headers2 = auth_headers("user2", "pass12345")
         response2 = client.post(
             "/suggestions",
@@ -253,6 +232,5 @@ class TestOwnerOnlyAuthorization:
         )
         assert response2.status_code == 200
 
-        # Both should have different IDs and user_ids
         assert response1.json()["id"] != response2.json()["id"]
         assert response1.json()["user_id"] != response2.json()["user_id"]

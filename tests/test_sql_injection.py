@@ -19,7 +19,6 @@ class TestSQLInjection:
         )
         assert response.status_code == 422
         assert "validation_error" in response.json()["error"]["code"]
-        # Message should mention alphanumeric, letters, numbers, or underscores
         message = response.json()["error"]["message"].lower()
         assert any(
             word in message
@@ -86,12 +85,10 @@ class TestSQLInjection:
 
     def test_sql_injection_in_login_username(self, client):
         """Test SQL injection in login endpoint."""
-        # Try SQL injection in login (should not crash)
         response = client.post(
             "/auth/login",
             params={"username": "admin' OR '1'='1", "password": "anything"},
         )
-        # Should return invalid credentials, not crash
         assert response.status_code == 401
         assert "invalid_credentials" in response.json()["error"]["code"]
 
@@ -99,12 +96,9 @@ class TestSQLInjection:
         """Test SQL injection in suggestions status filter."""
         headers = auth_headers()
 
-        # Try SQL injection in status query parameter
         response = client.get(
             "/suggestions", params={"status": "new' OR '1'='1"}, headers=headers
         )
-        # Should handle gracefully (SQLAlchemy parameterization protects)
-        # Empty result is OK (no match for that status)
         assert response.status_code in [200, 422]
 
     def test_valid_username_with_underscore(self, client):
@@ -150,7 +144,6 @@ class TestSQLInjection:
         """Test that suggestions are created with parameterized queries."""
         headers = auth_headers()
 
-        # Try creating suggestion with SQL-like content (should be stored as-is)
         response = client.post(
             "/suggestions",
             headers=headers,
@@ -161,10 +154,8 @@ class TestSQLInjection:
             },
         )
         assert response.status_code == 200
-        # Content should be stored as-is (parameterized query protects)
         assert "Test" in response.json()["title"]
         assert "SELECT" in response.json()["text"]
 
-        # Verify it was stored correctly
         response = client.get(f"/suggestions/{response.json()['id']}", headers=headers)
         assert response.status_code == 200

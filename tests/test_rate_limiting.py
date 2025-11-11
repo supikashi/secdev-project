@@ -16,7 +16,6 @@ class TestRateLimiting:
         """Test that rate limiting blocks after 5 failed login attempts."""
         username = "testuser"
 
-        # First 5 attempts should return 401 (invalid credentials)
         for i in range(5):
             response = client.post(
                 "/auth/login",
@@ -25,7 +24,6 @@ class TestRateLimiting:
             assert response.status_code == 401
             assert response.json()["error"]["code"] == "invalid_credentials"
 
-        # 6th attempt should be rate limited (429)
         response = client.post(
             "/auth/login", params={"username": username, "password": "wrongpassword"}
         )
@@ -35,8 +33,6 @@ class TestRateLimiting:
 
     def test_rate_limit_by_ip_blocks_after_10_attempts(self, client):
         """Test that rate limiting blocks after 10 failed attempts from same IP."""
-        # Try different usernames to bypass username rate limit
-        # All from same IP (test client)
 
         for i in range(10):
             response = client.post(
@@ -45,7 +41,6 @@ class TestRateLimiting:
             )
             assert response.status_code == 401
 
-        # 11th attempt should be rate limited by IP
         response = client.post(
             "/auth/login", params={"username": "user99", "password": "wrongpassword"}
         )
@@ -58,13 +53,11 @@ class TestRateLimiting:
         username = "testuser"
         password = "test12345"
 
-        # Register user
         response = client.post(
             "/auth/register", params={"username": username, "password": password}
         )
         assert response.status_code == 200
 
-        # Make 3 failed attempts
         for i in range(3):
             response = client.post(
                 "/auth/login",
@@ -72,13 +65,11 @@ class TestRateLimiting:
             )
             assert response.status_code == 401
 
-        # Successful login should clear rate limit
         response = client.post(
             "/auth/login", params={"username": username, "password": password}
         )
         assert response.status_code == 200
 
-        # Now we can make another 5 failed attempts
         for i in range(5):
             response = client.post(
                 "/auth/login",
@@ -86,7 +77,6 @@ class TestRateLimiting:
             )
             assert response.status_code == 401
 
-        # 6th should be blocked
         response = client.post(
             "/auth/login", params={"username": username, "password": "wrongpassword"}
         )
@@ -94,20 +84,17 @@ class TestRateLimiting:
 
     def test_rate_limit_different_usernames_independent(self, client):
         """Test that rate limits are independent per username."""
-        # Block user1
         for i in range(5):
             response = client.post(
                 "/auth/login", params={"username": "user1", "password": "wrong"}
             )
             assert response.status_code == 401
 
-        # user1 should be blocked
         response = client.post(
             "/auth/login", params={"username": "user1", "password": "wrong"}
         )
         assert response.status_code == 429
 
-        # user2 should still work (independent rate limit)
         response = client.post(
             "/auth/login", params={"username": "user2", "password": "wrong"}
         )
@@ -117,7 +104,6 @@ class TestRateLimiting:
         """Test that rate limit error message mentions username."""
         username = "blocked_user"
 
-        # Trigger rate limit
         for i in range(6):
             client.post(
                 "/auth/login", params={"username": username, "password": "wrong"}
@@ -152,19 +138,16 @@ class TestRateLimiting:
         username = "gooduser"
         password = "goodpass123"
 
-        # Register
         client.post(
             "/auth/register", params={"username": username, "password": password}
         )
 
-        # Make 10 successful logins
         for i in range(10):
             response = client.post(
                 "/auth/login", params={"username": username, "password": password}
             )
             assert response.status_code == 200
 
-        # Should still be able to login (successful logins don't count)
         response = client.post(
             "/auth/login", params={"username": username, "password": password}
         )
@@ -174,7 +157,6 @@ class TestRateLimiting:
         """Test that rate limiting returns proper HTTP 429 status."""
         username = "ratelimited"
 
-        # Trigger rate limit
         for i in range(6):
             client.post(
                 "/auth/login", params={"username": username, "password": "wrong"}
