@@ -1,17 +1,71 @@
+# Git and version control
 .git
+.github
 .gitignore
 .gitattributes
-__pycache__/
+
+# Python cache and build
+__pycache__
 *.pyc
 *.pyo
 *.pyd
+.Python
+*.egg-info
+dist
+build
+
+# Virtual environments
+.venv
+venv
+ENV
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+.tox
+tests
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment and config
+.env
+.env.local
+
+# Documentation
+docs
+*.md
+README.md
+QUICKSTART.md
+SECURITY.md
+P*.md
+
+# CI/CD
+.github
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+compose.yaml
+.dockerignore
+
+# Development tools
+.pre-commit-config.yaml
+.semgrep.yaml
+.gitleaks.toml
+.hadolint.yaml
+pyproject.toml
+requirements-dev.txt
+
+# Database
 *.sqlite
 *.db
-.venv/
-dist/
-build/
-.pytest_cache/
-.coverage
-htmlcov/
-node_modules/
-.env
+
+# Logs
+*.log
+.DS_Store
+.ruff_cache
