@@ -27,50 +27,128 @@ jobs:
           echo "3. Push your fix branch and create a PR"
           exit 1
 
-  build:
+  lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install dependencies
+        timeout-minutes: 5
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Lint & Format
+      - name: Lint with ruff
+        timeout-minutes: 3
+        run: ruff check --output-format=github .
+
+      - name: Check formatting (black)
+        timeout-minutes: 2
+        run: black --check .
+
+      - name: Check imports (isort)
+        timeout-minutes: 2
+        run: isort --check-only .
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        timeout-minutes: 5
         run: |
-          ruff check --output-format=github .
-          black --check .
-          isort --check-only .
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Tests
+      - name: Run tests with coverage
+        timeout-minutes: 5
         env:
-          DATABASE_URL: "sqlite:///:memory:"
-        run: pytest -q
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'sqlite:///:memory:' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'test-secret-key-for-ci' }}
+        run: |
+          mkdir -p reports
+          pytest -q \
+            --cov=app \
+            --cov-report=xml:reports/coverage.xml \
+            --cov-report=html:reports/htmlcov \
+            --junitxml=reports/junit.xml
 
-      - name: Pre-commit (all files)
-        run: pre-commit run --all-files
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: reports/
+          retention-days: 30
+
+  build-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install build tools
+        timeout-minutes: 3
+        run: |
+          python -m pip install --upgrade pip
+          pip install build wheel
+
+      - name: Build wheel package
+        timeout-minutes: 5
+        run: python -m build
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: dist/*.whl
+          retention-days: 90
 
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
 
       - name: Hadolint
+        timeout-minutes: 2
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
           failure-threshold: warning
 
       - name: Set up Docker Buildx
+        timeout-minutes: 3
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
+        timeout-minutes: 10
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -81,6 +159,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Check non-root user
+        timeout-minutes: 2
         run: |
           USER_ID=$(docker run --rm supikashi:test id -u)
           echo "Container running as UID: $USER_ID"
@@ -91,6 +170,7 @@ jobs:
           echo "✅ Container is running as non-root user (UID: $USER_ID)"
 
       - name: Check healthcheck configuration
+        timeout-minutes: 2
         run: |
           HEALTHCHECK=$(docker inspect --format='{{json .Config.Healthcheck}}' supikashi:test)
           echo "Healthcheck config: $HEALTHCHECK"
@@ -101,6 +181,7 @@ jobs:
           echo "✅ Healthcheck is configured"
 
       - name: Test container with SQLite
+        timeout-minutes: 5
         run: |
           docker run -d --name test-container \
             -p 8000:8000 \
@@ -134,3 +215,58 @@ jobs:
         with:
           name: sbom
           path: sbom.json
+
+  stage-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [docker, build-package]
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://staging.example.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Prepare deployment package
+        timeout-minutes: 3
+        run: |
+          echo "Preparing deployment package..."
+          ls -lah artifacts/
+          echo "✅ Artifacts ready for deployment"
+
+      - name: Mock deployment to staging
+        timeout-minutes: 5
+        env:
+          DEPLOY_ENV: staging
+          APP_VERSION: ${{ github.sha }}
+        run: |
+          echo "Starting deployment to staging environment..."
+          echo "Environment: $DEPLOY_ENV"
+          echo "Version: $APP_VERSION"
+          echo "Branch: ${{ github.ref_name }}"
+          echo ""
+          echo "Deployment steps (dry-run):"
+          echo "  1. Validating deployment package"
+          echo "  2. Checking staging cluster connectivity"
+          echo "  3. Uploading Docker image to staging registry"
+          echo "  4. Deploying to staging namespace"
+          echo "  5. Running health checks"
+          echo "  6. Smoke tests passed"
+          echo ""
+          echo "✅ Deployment to staging completed successfully!"
+          echo "Deployment URL would be: https://staging-${{ github.ref_name }}.example.com"
+
+      - name: Create deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** staging" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ✅ Success (dry-run)" >> $GITHUB_STEP_SUMMARY
