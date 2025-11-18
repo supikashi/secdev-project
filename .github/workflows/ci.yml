@@ -219,7 +219,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [docker, build-package]
-    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    if: github.event_name == 'pull_request' && github.ref != 'refs/heads/main'
     environment:
       name: staging
       url: http://localhost:8000
