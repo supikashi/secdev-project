@@ -26,6 +26,7 @@ jobs:
           echo "2. Reset main to previous state: git checkout main && git reset --hard HEAD~1"
           echo "3. Push your fix branch and create a PR"
           exit 1
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -54,3 +55,82 @@ jobs:
 
       - name: Pre-commit (all files)
         run: pre-commit run --all-files
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: supikashi:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Check non-root user
+        run: |
+          USER_ID=$(docker run --rm supikashi:test id -u)
+          echo "Container running as UID: $USER_ID"
+          if [ "$USER_ID" = "0" ]; then
+            echo "❌ ERROR: Container is running as root!"
+            exit 1
+          fi
+          echo "✅ Container is running as non-root user (UID: $USER_ID)"
+
+      - name: Check healthcheck configuration
+        run: |
+          HEALTHCHECK=$(docker inspect --format='{{json .Config.Healthcheck}}' supikashi:test)
+          echo "Healthcheck config: $HEALTHCHECK"
+          if [ "$HEALTHCHECK" = "null" ] || [ "$HEALTHCHECK" = "" ]; then
+            echo "❌ ERROR: No healthcheck configured!"
+            exit 1
+          fi
+          echo "✅ Healthcheck is configured"
+
+      - name: Test container with SQLite
+        run: |
+          docker run -d --name test-container \
+            -p 8000:8000 \
+            --tmpfs /tmp:uid=1000,gid=1000 \
+            -e DATABASE_URL="sqlite:////tmp/test.db" \
+            supikashi:test
+          sleep 15
+          curl -f http://localhost:8000/health || (docker logs test-container && exit 1)
+          docker stop test-container
+          docker rm test-container
+          echo "✅ Container runs successfully"
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: supikashi:test
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: 0
+
+      - name: Generate SBOM
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: supikashi:test
+          format: 'cyclonedx'
+          output: 'sbom.json'
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom
+          path: sbom.json
