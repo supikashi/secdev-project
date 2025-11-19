@@ -215,57 +215,32 @@ jobs:
           name: sbom
           path: sbom.json
 
-  stage-deploy:
+  deploy-staging:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [docker, build-package]
-    if: github.event_name == 'pull_request' && github.ref != 'refs/heads/main'
-    environment:
-      name: staging
-      url: http://localhost:8000
+    timeout-minutes: 5
+    needs: [test]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Create deployment page
+        run: |
+          mkdir deploy
+          cat > deploy/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head><title>Supikashi API - Staging</title></head>
+          <body>
+            <h1>🚀 Staging Deployment</h1>
+            <p>Deployed from main branch</p>
+            <p><a href="https://github.com/supikashi/secdev-project">View Repository</a></p>
+          </body>
+          </html>
+          EOF
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: artifacts/
-
-      - name: Prepare deployment package
-        timeout-minutes: 3
-        run: |
-          echo "Preparing deployment package..."
-          ls -lah artifacts/
-          echo "✅ Artifacts ready for deployment"
-
-      - name: Mock deployment to staging
-        timeout-minutes: 5
-        env:
-          DEPLOY_ENV: staging
-          APP_VERSION: ${{ github.sha }}
-        run: |
-          echo "Starting deployment to staging environment..."
-          echo "Environment: $DEPLOY_ENV"
-          echo "Version: $APP_VERSION"
-          echo "Branch: ${{ github.ref_name }}"
-          echo ""
-          echo "Deployment steps (dry-run):"
-          echo "  1. Validating deployment package"
-          echo "  2. Checking staging cluster connectivity"
-          echo "  3. Uploading Docker image to staging registry"
-          echo "  4. Deploying to staging namespace"
-          echo "  5. Running health checks"
-          echo "  6. Smoke tests passed"
-          echo ""
-          echo "✅ Deployment to staging completed successfully!"
-          echo "Deployment URL would be: https://staging-${{ github.ref_name }}.example.com"
-
-      - name: Create deployment summary
-        if: always()
-        run: |
-          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment:** staging" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ✅ Success (dry-run)" >> $GITHUB_STEP_SUMMARY
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy
+          force_orphan: true
