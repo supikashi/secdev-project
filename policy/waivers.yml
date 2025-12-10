@@ -1,0 +1,40 @@
+# Vulnerability Waivers Policy
+
+# Purpose: This file tracks accepted vulnerabilities that won't be fixed immediately,
+# with justification and review dates.
+
+# Waiver Structure:
+# waivers:
+#   - id: CVE-YYYY-XXXXX
+#     package: package-name
+#     version: x.y.z
+#     severity: High
+#     reason: |
+#       Brief explanation why this is accepted (e.g., not exploitable in our context,
+#       no fix available, compensating controls in place)
+#     added_by: github-username
+#     added_date: YYYY-MM-DD
+#     review_date: YYYY-MM-DD
+#     issue: "#123"  # Link to tracking issue/PR
+#     status: active  # active | resolved | expired
+
+# Example waivers (replace with actual vulnerabilities after first scan)
+waivers:
+  - id: CVE-2024-XXXXX
+    package: example-package
+    version: "1.0.0"
+    severity: Medium
+    reason: |
+      This vulnerability requires local file system access which is not available
+      in our containerized deployment with read-only filesystem.
+    added_by: developer
+    added_date: 2025-12-10
+    review_date: 2026-01-10
+    issue: "#TODO"
+    status: active
+
+# Review Process:
+# 1. All waivers must be reviewed monthly
+# 2. Expired waivers (past review_date) must be re-evaluated
+# 3. When a fix becomes available, waiver should be marked as resolved
+# 4. Link all waivers to tracking issues for visibility
