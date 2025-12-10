@@ -9,8 +9,12 @@ build/
 .env
 .pytest_cache/
 .coverage
+htmlcov/
+reports/
+
 # IDE
 .vscode/
 .idea/
+
 # OS
 .DS_Store
