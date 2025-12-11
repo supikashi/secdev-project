@@ -33,19 +33,23 @@ jobs:
           pip install -q -r requirements.txt
 
       - name: Start application
+        env:
+          DATABASE_URL: "sqlite:///:memory:"
         run: |
           mkdir -p EVIDENCE/P11
           uvicorn app.main:app --host 0.0.0.0 --port 8080 &
           timeout 30 bash -c 'until curl -sf http://localhost:8080/health; do sleep 1; done'
-          echo "Application started"
+          echo "Application started successfully"
 
       - name: Run ZAP Baseline Scan
         run: |
+          chmod -R 777 $PWD
           docker run --rm --network host \
             -v $PWD:/zap/wrk:rw \
             ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py \
-              -t http://localhost:8080 \
+            zap-api-scan.py \
+              -t http://localhost:8080/openapi.json \
+              -f openapi \
               -r zap_baseline.html \
               -J zap_baseline.json \
               -d || true
