@@ -1,0 +1,23 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "False positives allowlist"
+
+# Test files and docs with mock data
+paths = [
+  '''tests/.*''',
+  '''docs/.*''',
+  '''README\.md''',
+]
+
+# Example patterns in test/docs
+regexes = [
+  '''(test|example|sample)[_-]?(password|secret|key)''',
+]
+
+[[rules]]
+description = "Generic API Key"
+id = "generic-api-key"
+regex = '''(?i)(api[_-]?key|apikey)['\"]?\s*[:=]\s*['\"]?[a-zA-Z0-9_\-]{20,}'''
+tags = ["key", "API"]

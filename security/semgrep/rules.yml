@@ -1,0 +1,21 @@
+rules:
+  - id: hardcoded-secret
+    pattern-either:
+      - pattern: password = "..."
+      - pattern: api_key = "..."
+      - pattern: secret = "..."
+    message: Hardcoded secret detected
+    languages: [python]
+    severity: ERROR
+
+  - id: sql-injection
+    pattern: $CURSOR.execute(f"... {$VAR} ...")
+    message: SQL injection via f-string
+    languages: [python]
+    severity: ERROR
+
+  - id: debug-mode
+    pattern: app.run(debug=True)
+    message: Debug mode in production
+    languages: [python]
+    severity: WARNING
