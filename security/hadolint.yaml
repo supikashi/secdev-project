@@ -1,0 +1,6 @@
+# Hadolint config for supikashi project
+# Ignoring rules that don't apply to our multi-stage Dockerfile
+
+ignored:
+  - DL3008  # Pin versions for apt packages (we use slim base)
+  - DL3018  # Pin versions for apk packages (not using Alpine in final stage)
