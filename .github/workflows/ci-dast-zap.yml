@@ -1,0 +1,65 @@
+name: DAST - ZAP Baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'p11-*']
+    paths:
+      - 'app/**'
+      - '.github/workflows/ci-dast-zap.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dast-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -q -r requirements.txt
+
+      - name: Start application
+        env:
+          DATABASE_URL: "sqlite:///:memory:"
+        run: |
+          mkdir -p EVIDENCE/P11
+          uvicorn app.main:app --host 0.0.0.0 --port 8080 &
+          timeout 30 bash -c 'until curl -sf http://localhost:8080/health; do sleep 1; done'
+          echo "Application started successfully"
+
+      - name: Run ZAP Baseline Scan
+        run: |
+          chmod -R 777 $PWD
+          docker run --rm --network host \
+            -v $PWD:/zap/wrk:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-api-scan.py \
+              -t http://localhost:8080/openapi.json \
+              -f openapi \
+              -r zap_baseline.html \
+              -J zap_baseline.json \
+              -d || true
+          mv zap_baseline.html EVIDENCE/P11/ 2>/dev/null || true
+          mv zap_baseline.json EVIDENCE/P11/ 2>/dev/null || true
+
+      - name: Upload DAST artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-zap-evidence
+          path: EVIDENCE/P11/
+          retention-days: 90
