@@ -1,0 +1,16 @@
+# Trivy config for supikashi project
+
+scan:
+  scanners:
+    - vuln
+    - config
+    - secret
+  severity:
+    - CRITICAL
+    - HIGH
+    - MEDIUM
+
+vulnerability:
+  type:
+    - os
+    - library

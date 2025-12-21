@@ -1,0 +1,11 @@
+# Checkov config for supikashi project
+
+quiet: false
+compact: true
+framework:
+  - kubernetes
+  - dockerfile
+
+skip-check:
+  - CKV_K8S_43  # Image pull policy - we use IfNotPresent for local builds
+  - CKV_SECRET_6  # Base64 encoded secrets - example secrets for demo
